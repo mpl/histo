@@ -1,0 +1,4 @@
+Simple histogram package for go
+to install:
+goinstall github.com/mpl/histo
+
