@@ -26,29 +26,31 @@ import (
 type Bar struct {
 	Value int64
 	Count int64
+	Min   int64
+	Max   int64
 }
 
-type Histo []Bar
+type Histo [](*Bar)
 
 func (h Histo) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
 func (h Histo) Len() int           { return len(h) }
 func (h Histo) Less(i, j int) bool { return h[i].Value < h[j].Value }
 
-func NewHisto(m map[int64]int64) *Histo {
+func NewHisto(m map[int64]int64, nb int) *Histo {
 	h := make(Histo, len(m))
 	i := 0
 	for k, v := range m {
-		h[i] = Bar{k, v}
+		h[i] = &Bar{Value: k, Count: v}
 		i++
 	}
 	sort.Sort(h)
-	return &h
+	return h.ReBin(nb)
 }
 
 func (h Histo) At(value int64) (hb *Bar) {
 	for _, v := range h {
 		if v.Value == value {
-			hb = &v 
+			hb = v
 			break
 		}
 	}
@@ -58,14 +60,40 @@ func (h Histo) At(value int64) (hb *Bar) {
 func (h Histo) MaxCount() (mc int64) {
 	for _, v := range h {
 		if v.Count > mc {
-			mc = v.Count 
+			mc = v.Count
 		}
 	}
 	return mc
 }
 
-func (h Histo) MaxValue() (mv int64) {
+func (h Histo) MaxValue() int64 {
 	return h[len(h)-1].Value
+}
+
+func (h Histo) MinValue() int64 {
+	return h[0].Value
+}
+
+// TODO(mpl): variable width bins
+func (h Histo) ReBin(nb int) *Histo {
+	binWidth := 1 + (h.MaxValue()-h.MinValue())/int64(nb)
+	nh := make(Histo, 0, 1)
+	np := int64(0)
+	average := int64(0)
+	max := h.MinValue() + binWidth
+	for _, v := range h {
+		if v.Value > max {
+			average /= np
+			nh = append(nh, &Bar{average, np, max, max + binWidth})
+			max += binWidth
+			average = v.Value
+			np = 1
+		} else {
+			average += v.Value
+			np++
+		}
+	}
+	return &nh
 }
 
 type Params struct {
@@ -95,21 +123,17 @@ func (histo Histo) Draw(params *Params) (err os.Error) {
 		fg = params.fg
 	}
 
-	barWidth := w / (2 * len(histo) + 1)
+	barWidth := w / (2*len(histo) + 1)
 	spacing := barWidth
 	barHeight := 0
 	pos := spacing
 	highestCount := histo.MaxCount()
-	
+
 	for _, hb := range histo {
 		barHeight = int(hb.Count * int64(h) / highestCount)
-		r := image.Rect(pos, h - barHeight, pos + barWidth, h)
+		r := image.Rect(pos, h-barHeight, pos+barWidth, h)
 		draw.Draw(bg, r, fg, r.Min, params.op)
 		pos += barWidth + spacing
 	}
 	return err
 }
-
-
-
-
