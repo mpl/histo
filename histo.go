@@ -25,7 +25,7 @@ type Bar struct {
 	Count int64
 	Min   int64
 	Max   int64
-	
+	Points []int64
 }
 
 type sortable []int64 
@@ -35,18 +35,18 @@ func (s sortable) Len() int           { return len(s) }
 func (s sortable) Less(i, j int) bool { return s[i] < s[j] }
 
 type Histo struct {
-	num int
+	nb int // number of bins/bars
+	np int // number of points
 	bar [](*Bar)
-	unsorted sortable
+	unsorted sortable // pool of points yet to be sorted
 }
 
 // NewHisto returns an histogram set up with n bins
 func NewHisto(num int) *Histo {
-	bar := make([](*Bar), 0, 1)
-	unsorted := make([]int64, 0, 1)
-	return &Histo{num, bar, unsorted}
+//	bar := make([](*Bar), 0, 1)
+//	unsorted := make([]int64, 0, 1)
+	return &Histo{num, 0, nil, nil}
 }
-
 
 func (h *Histo) sort() {
 	if h.unsorted != nil {
@@ -56,26 +56,109 @@ func (h *Histo) sort() {
 
 func (h *Histo) Add(v int64) {
 	h.unsorted = append(h.unsorted, v)
-	for _,v := range h.unsorted {
-println(v)
+}
+
+func (h *Histo) resize(min int64, max in64) {
+	binWidth := 1 + (max - min)/int64(h.num)
+	np := int64(h.np)
+	average := int64(0)
+	sup := min + binWidth
+	for _, v := range h.bar {
+		
 	}
 }
 
-func (h *Histo) bin(num int) {
-println("foo")
+func (h *Histo) distribute() {
 	if h.unsorted == nil {
-println("bar")
+		// no new points; nothing to do
 		return
 	}
-println(len(h.unsorted))
-	for _,v := range h.unsorted {
-println(v)
-	}
-	h.sort()
+
+	rebin := false
 	max := h.unsorted[len(h.unsorted) - 1]
 	min := h.unsorted[0]
+	if h.bar != nil {
+		if h.bar[len(h.bar) - 1].Max > max {
+			max = h.bar[len(h.bar) - 1].Max
+		} else {
+			rebin = true
+		}
+		if h.bar[0].Min < min {
+			min = h.bar[0].Min
+		} else {
+			rebin = true
+		}
+	} 
+	binWidth := 1 + (max - min)/int64(h.num)
+	np := int64(h.np)
+	average := int64(0)
+	sup := min + binWidth
+	var points []int64
+	if h.bar == nil {
+		// brand new histo
+	for _, v := range h.unsorted {
+		if v > sup {
+			average /= np
+			h.bar = append(h.bar, &Bar{average, np, sup, sup + binWidth, points})
+			sup += binWidth
+			average = v
+			np = 1
+		} else {
+			points = append(make([]int64, 0, 1), v)
+			average += v
+			np++
+		}
+	}
+	} else {
+		if rebin {
+
+		} else {
+			// histo already exists and does not need to be extended for new points
+			i := 0
+			for _, v := range h.unsorted {
+				for i < len(h.bar) {
+					bar := h.bar[i]
+					if v <= bar.Max {
+						bar.Value = (bar.Value * bar.Count + v) / (bar.Count + 1)
+						bar.Count++
+						bar.Points = append(bar.Points, v)
+						break
+					}
+					i++
+				}
+			}
+		}
+	}
+	h.unsorted = nil	
+}
+
+func (h *Histo) bin(num int) {
+	if h.unsorted == nil && num == h.num {
+		// no new points and no change in nb of bars; nothing to do.
+		return
+	}
+
+	max := int64(0)
+	min := int64(0)
+	if h.unsorted != nil {
+		h.sort()
+		max = h.unsorted[len(h.unsorted) - 1]
+		min = h.unsorted[0]
+	}
+	if h.bar != nil {
+		max = h.bar[len(h.bar) - 1].Max
+		min = h.bar[0].Min
+		if h.unsorted != nil {
+			if h.unsorted[len(h.unsorted) - 1] > max {
+				max = h.unsorted[len(h.unsorted) - 1]
+			}
+			if h.unsorted[0] < min {
+				min = h.unsorted[0]
+			}
+		}
+	} 
 	binWidth := 1 + (max - min)/int64(num)
-	np := int64(0)
+	np := int64(h.np)
 	average := int64(0)
 	sup := min + binWidth
 	for _, v := range h.unsorted {
