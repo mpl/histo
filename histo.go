@@ -35,29 +35,41 @@ func (s sortable) Len() int           { return len(s) }
 func (s sortable) Less(i, j int) bool { return s[i] < s[j] }
 
 type Histo struct {
+	num int
 	bar [](*Bar)
 	unsorted sortable
 }
 
 // NewHisto returns an histogram set up with n bins
-func NewHisto() *Histo {
-	return &Histo{nil, nil}
+func NewHisto(num int) *Histo {
+	bar := make([](*Bar), 0, 1)
+	unsorted := make([]int64, 0, 1)
+	return &Histo{num, bar, unsorted}
 }
 
 
-func (h Histo) sort() {
+func (h *Histo) sort() {
 	if h.unsorted != nil {
 		sort.Sort(h.unsorted)
 	}
 }
 
-func (h Histo) Add(v int64) {
+func (h *Histo) Add(v int64) {
 	h.unsorted = append(h.unsorted, v)
+	for _,v := range h.unsorted {
+println(v)
+	}
 }
 
-func (h Histo) bin(num int) {
+func (h *Histo) bin(num int) {
+println("foo")
 	if h.unsorted == nil {
+println("bar")
 		return
+	}
+println(len(h.unsorted))
+	for _,v := range h.unsorted {
+println(v)
 	}
 	h.sort()
 	max := h.unsorted[len(h.unsorted) - 1]
@@ -79,14 +91,17 @@ func (h Histo) bin(num int) {
 		}
 	}
 	h.unsorted = nil
+	for _,v := range h.bar {
+		println(v.Value, " ", v.Count)
+	}
 }
 
-func (h Histo) Bin(num int) {
+func (h *Histo) ReBin(num int) {
 	h.bin(num)
 }
 
-func (h Histo) Bars(num int) [](*Bar) {
-	h.bin(num)
+func (h *Histo) Bars() [](*Bar) {
+	h.bin(h.num)
 	return h.bar
 }
 
